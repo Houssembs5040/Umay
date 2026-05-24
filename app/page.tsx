@@ -1442,6 +1442,17 @@ export default function Page() {
                     (a) => new Date(a.appointment_date) < today,
                   );
 
+                  // Summary bar counts: prenatal consultations only
+                  const consultations = appointments.filter(
+                    (a) => a.type === "consultation",
+                  );
+                  const upcomingConsultations = upcoming.filter(
+                    (a) => a.type === "consultation",
+                  );
+                  const pastConsultations = past.filter(
+                    (a) => a.type === "consultation",
+                  );
+
                   const AppointmentCard = ({
                     apt,
                     dimmed = false,
@@ -1546,13 +1557,12 @@ export default function Page() {
                           {
                             label:
                               language === "fr"
-                                ? "Total"
+                                ? "Consultations"
                                 : language === "ar"
-                                  ? "المجموع"
-                                  : "Total",
-                            value: appointments.length,
-                            color:
-                              "bg-muted text-foreground",
+                                  ? "الاستشارات"
+                                  : "Consultations",
+                            value: consultations.length,
+                            color: "bg-muted text-foreground",
                           },
                           {
                             label:
@@ -1561,20 +1571,18 @@ export default function Page() {
                                 : language === "ar"
                                   ? "قادمة"
                                   : "Upcoming",
-                            value: upcoming.length,
-                            color:
-                              "bg-primary/10 text-primary",
+                            value: upcomingConsultations.length,
+                            color: "bg-primary/10 text-primary",
                           },
                           {
                             label:
                               language === "fr"
-                                ? "Passés"
+                                ? "Passées"
                                 : language === "ar"
                                   ? "منتهية"
                                   : "Past",
-                            value: past.length,
-                            color:
-                              "bg-muted/60 text-muted-foreground",
+                            value: pastConsultations.length,
+                            color: "bg-muted/60 text-muted-foreground",
                           },
                         ].map((s) => (
                           <div

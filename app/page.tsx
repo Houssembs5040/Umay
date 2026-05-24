@@ -904,31 +904,31 @@ export default function Page() {
                     </div>
                     <Progress value={progressPct} className="h-3" />
 
-                    <div className="grid grid-cols-3 gap-4 mt-5">
-                      <div className="text-center p-3 bg-muted/50 rounded-xl">
-                        <p className="text-muted-foreground text-xs mb-1">
+                    <div className="grid grid-cols-3 gap-2 mt-5">
+                      <div className="text-center p-2 bg-muted/50 rounded-xl min-w-0">
+                        <p className="text-muted-foreground text-xs mb-1 leading-tight">
                           {t("dashboard.weeksPregnant")}
                         </p>
-                        <p className="text-2xl font-bold text-primary">
+                        <p className="text-lg font-bold text-primary leading-tight">
                           {dashboardData.gestational_age.weeks}
-                          <span className="text-sm font-normal text-muted-foreground ml-1">
+                          <span className="text-xs font-normal text-muted-foreground ml-0.5">
                             SA+{dashboardData.gestational_age.days}j
                           </span>
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-xl">
-                        <p className="text-muted-foreground text-xs mb-1">
+                      <div className="text-center p-2 bg-muted/50 rounded-xl min-w-0">
+                        <p className="text-muted-foreground text-xs mb-1 leading-tight">
                           {t("dashboard.trimester")}
                         </p>
                         <p className="text-2xl font-bold text-primary">
                           {dashboardData?.pregnancy?.trimester}
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-xl">
-                        <p className="text-muted-foreground text-xs mb-1">
+                      <div className="text-center p-2 bg-muted/50 rounded-xl min-w-0">
+                        <p className="text-muted-foreground text-xs mb-1 leading-tight">
                           {t("profile.dueDate")}
                         </p>
-                        <p className="text-sm font-semibold text-foreground">
+                        <p className="text-xs font-semibold text-foreground leading-tight break-words">
                           {formatDate(dashboardData?.pregnancy?.due_date)}
                         </p>
                       </div>

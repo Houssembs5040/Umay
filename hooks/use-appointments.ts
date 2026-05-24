@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient, BackendAppointment } from "@/lib/api-client";
 
+/** Sorts appointments ascending by date, then by id as a stable tiebreaker. */
+function sortByDate(list: BackendAppointment[]): BackendAppointment[] {
+  return [...list].sort((a, b) => {
+    const diff =
+      new Date(a.appointment_date).getTime() -
+      new Date(b.appointment_date).getTime();
+    return diff !== 0 ? diff : a.id - b.id;
+  });
+}
+
 export function useAppointments(enabled = true) {
   const [appointments, setAppointments] = useState<BackendAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
@@ -13,7 +23,7 @@ export function useAppointments(enabled = true) {
     const response = await apiClient.getAppointments(status);
 
     if (response.success && response.data) {
-      setAppointments(response.data);
+      setAppointments(sortByDate(response.data));
     } else {
       setError(
         response.error || response.message || "Failed to fetch appointments",
@@ -36,7 +46,7 @@ export function useAppointments(enabled = true) {
       const response = await apiClient.createAppointment(data);
 
       if (response.success && response.data) {
-        setAppointments((prev) => [...prev, response.data!]);
+        setAppointments((prev) => sortByDate([...prev, response.data!]));
       }
 
       return response;
@@ -111,7 +121,27 @@ export function useAppointments(enabled = true) {
     const response = await apiClient.generatePrenatalPlan();
 
     if (response.success && response.data) {
-      setAppointments(response.data);
+      setAppointments(sortByDate(response.data));
+    }
+
+    return response;
+  }, []);
+
+  /**
+   * Calls POST /appointments/generate-monthly-analyses.
+   * On success, merges the new serology reminders into the existing list
+   * (avoids overwriting appointments already in state).
+   * Gracefully ignores 400 "pregnancy profile not found" errors.
+   */
+  const generateMonthlyAnalyses = useCallback(async () => {
+    const response = await apiClient.generateMonthlyAnalyses();
+
+    if (response.success && response.data && response.data.length > 0) {
+      setAppointments((prev) => {
+        const existingIds = new Set(prev.map((a) => a.id));
+        const newOnes = response.data!.filter((a) => !existingIds.has(a.id));
+        return newOnes.length > 0 ? sortByDate([...prev, ...newOnes]) : prev;
+      });
     }
 
     return response;
@@ -135,6 +165,7 @@ export function useAppointments(enabled = true) {
     updateAppointment,
     deleteAppointment,
     generatePrenatalPlan,
+    generateMonthlyAnalyses,
     refetch: fetchAppointments,
   };
 }

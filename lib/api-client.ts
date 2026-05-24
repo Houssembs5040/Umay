@@ -563,6 +563,21 @@ class ApiClient {
   }
 
   /**
+   * POST /appointments/generate-monthly-analyses
+   * Generates monthly serology reminders (toxoplasmosis + rubella).
+   * Returns 400 if pregnancy profile not found — callers should handle gracefully.
+   */
+  async generateMonthlyAnalyses(): Promise<ApiResponse<BackendAppointment[]>> {
+    const res = await this.request<{
+      count: number;
+      appointments: BackendAppointment[];
+    }>("POST", "/appointments/generate-monthly-analyses");
+
+    if (!res.success) return { ...res, data: undefined };
+    return { ...res, data: res.data?.appointments ?? [] };
+  }
+
+  /**
    * Mark an appointment as done.
    * @param outcomeType  "normal" | "anomaly"
    * @param comment      Optional free-text comment.

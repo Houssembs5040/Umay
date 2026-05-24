@@ -35,6 +35,7 @@ import {
   Pencil,
   Trash2,
   MessageSquare,
+  ChevronDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -277,6 +278,7 @@ export default function Page() {
     appointments,
     isLoading: aptsLoading,
     generatePrenatalPlan,
+    generateMonthlyAnalyses,
     createAppointment,
   } = useAppointments(shouldFetch);
   const {
@@ -344,6 +346,7 @@ export default function Page() {
   // Calendar / Appointments
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [showPastAppointments, setShowPastAppointments] = useState(false);
   const [newAppointment, setNewAppointment] = useState({
     type: "consultation",
     title: "",
@@ -478,6 +481,9 @@ export default function Page() {
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
     await generatePrenatalPlan();
+    // generate-monthly-analyses may return 400 when no pregnancy profile exists;
+    // that's handled silently — same policy as generate-prenatal-plan.
+    await generateMonthlyAnalyses();
     setIsGenerating(false);
   };
 
@@ -1425,51 +1431,242 @@ export default function Page() {
                   <Heart className="w-8 h-8 text-pink-400 animate-pulse" />
                 </div>
               ) : appointments.length > 0 ? (
-                <div className="space-y-3">
-                  {appointments.map((apt, aptIdx) => (
-                    <Card
-                      key={apt.id != null ? apt.id : `apt-${aptIdx}`}
-                      className="p-5 border-border flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Calendar className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {apt.title}
-                          </h3>
-                          <p className="text-muted-foreground text-sm">
-                            {formatDate(apt.appointment_date)}
-                            {apt.appointment_time
-                              ? ` • ${apt.appointment_time}`
-                              : ""}
-                          </p>
-                          {apt.doctor_name && (
-                            <p className="text-muted-foreground text-xs mt-0.5">
-                              {t("calendar.doctor")}: {apt.doctor_name}
-                            </p>
-                          )}
-                          {apt.location && (
-                            <p className="text-muted-foreground text-xs">
-                              📍 {apt.location}
-                            </p>
-                          )}
-                          {apt.notes && (
-                            <p className="text-muted-foreground text-xs italic mt-1">
-                              {apt.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(apt.status)}`}
+                (() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  const upcoming = appointments.filter(
+                    (a) => new Date(a.appointment_date) >= today,
+                  );
+                  const past = appointments.filter(
+                    (a) => new Date(a.appointment_date) < today,
+                  );
+
+                  const AppointmentCard = ({
+                    apt,
+                    dimmed = false,
+                    idx,
+                  }: {
+                    apt: (typeof appointments)[0];
+                    dimmed?: boolean;
+                    idx: number;
+                  }) => {
+                    const isSerologyReminder =
+                      apt.source === "auto" &&
+                      (apt.title.startsWith("Sérologie toxoplasmose") ||
+                        apt.title.startsWith("Sérologie rubéole"));
+                    return (
+                      <Card
+                        key={apt.id != null ? apt.id : `apt-${idx}`}
+                        className={`p-5 border-border flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row transition-opacity ${
+                          dimmed ? "opacity-55" : ""
+                        } ${
+                          isSerologyReminder
+                            ? "border-l-4 border-l-purple-400 dark:border-l-purple-500"
+                            : dimmed
+                              ? "border-l-4 border-l-muted"
+                              : ""
+                        }`}
                       >
-                        {getStatusLabel(apt.status, t)}
-                      </span>
-                    </Card>
-                  ))}
-                </div>
+                        <div className="flex items-start gap-4">
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                              apt.type === "analyse"
+                                ? "bg-purple-100 dark:bg-purple-900/30"
+                                : dimmed
+                                  ? "bg-muted"
+                                  : "bg-primary/10"
+                            }`}
+                          >
+                            {apt.type === "analyse" ? (
+                              <span className="text-lg">🔬</span>
+                            ) : apt.type === "echographie" ? (
+                              <span className="text-lg">🩻</span>
+                            ) : (
+                              <Calendar
+                                className={`w-5 h-5 ${dimmed ? "text-muted-foreground" : "text-primary"}`}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3
+                                className={`font-semibold ${dimmed ? "text-muted-foreground" : "text-foreground"}`}
+                              >
+                                {apt.title}
+                              </h3>
+                              {isSerologyReminder && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                                  🔁
+                                  {language === "fr"
+                                    ? "Rappel mensuel"
+                                    : language === "ar"
+                                      ? "تذكير شهري"
+                                      : "Monthly reminder"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-muted-foreground text-sm">
+                              {formatDate(apt.appointment_date)}
+                              {apt.appointment_time
+                                ? ` • ${apt.appointment_time}`
+                                : ""}
+                            </p>
+                            {apt.doctor_name && (
+                              <p className="text-muted-foreground text-xs mt-0.5">
+                                {t("calendar.doctor")}: {apt.doctor_name}
+                              </p>
+                            )}
+                            {apt.location && (
+                              <p className="text-muted-foreground text-xs">
+                                📍 {apt.location}
+                              </p>
+                            )}
+                            {apt.notes && (
+                              <p className="text-muted-foreground text-xs italic mt-1">
+                                {apt.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(apt.status)}`}
+                        >
+                          {getStatusLabel(apt.status, t)}
+                        </span>
+                      </Card>
+                    );
+                  };
+
+                  return (
+                    <div className="space-y-6">
+                      {/* ── Summary bar ───────────────────────────────── */}
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          {
+                            label:
+                              language === "fr"
+                                ? "Total"
+                                : language === "ar"
+                                  ? "المجموع"
+                                  : "Total",
+                            value: appointments.length,
+                            color:
+                              "bg-muted text-foreground",
+                          },
+                          {
+                            label:
+                              language === "fr"
+                                ? "À venir"
+                                : language === "ar"
+                                  ? "قادمة"
+                                  : "Upcoming",
+                            value: upcoming.length,
+                            color:
+                              "bg-primary/10 text-primary",
+                          },
+                          {
+                            label:
+                              language === "fr"
+                                ? "Passés"
+                                : language === "ar"
+                                  ? "منتهية"
+                                  : "Past",
+                            value: past.length,
+                            color:
+                              "bg-muted/60 text-muted-foreground",
+                          },
+                        ].map((s) => (
+                          <div
+                            key={s.label}
+                            className={`rounded-2xl p-4 text-center ${s.color}`}
+                          >
+                            <p className="text-2xl font-bold">{s.value}</p>
+                            <p className="text-xs mt-0.5 font-medium opacity-80">
+                              {s.label}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* ── Upcoming ──────────────────────────────────── */}
+                      {upcoming.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                              <span className="text-sm font-semibold text-foreground">
+                                {language === "fr"
+                                  ? "À venir"
+                                  : language === "ar"
+                                    ? "المواعيد القادمة"
+                                    : "Upcoming"}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-xs font-bold">
+                                {upcoming.length}
+                              </span>
+                            </div>
+                            <div className="flex-1 h-px bg-border" />
+                          </div>
+                          <div className="space-y-3">
+                            {upcoming.map((apt, i) => (
+                              <AppointmentCard
+                                key={apt.id ?? `u-${i}`}
+                                apt={apt}
+                                idx={i}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── Past (collapsible) ────────────────────────── */}
+                      {past.length > 0 && (
+                        <div className="space-y-3">
+                          <button
+                            onClick={() =>
+                              setShowPastAppointments((v) => !v)
+                            }
+                            className="w-full flex items-center gap-3 group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+                              <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                                {language === "fr"
+                                  ? "Rendez-vous passés"
+                                  : language === "ar"
+                                    ? "المواعيد السابقة"
+                                    : "Past appointments"}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                                {past.length}
+                              </span>
+                            </div>
+                            <div className="flex-1 h-px bg-border" />
+                            <ChevronDown
+                              className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+                                showPastAppointments ? "rotate-180" : ""
+                              }`}
+                            />
+                          </button>
+
+                          {showPastAppointments && (
+                            <div className="space-y-3">
+                              {past.map((apt, i) => (
+                                <AppointmentCard
+                                  key={apt.id ?? `p-${i}`}
+                                  apt={apt}
+                                  dimmed
+                                  idx={i}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 <Card className="p-8 text-center border-border">
                   <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
